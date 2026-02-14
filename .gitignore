@@ -1,0 +1,60 @@
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# macOS
+.DS_Store
+
+# Windows thumbnail cache
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### Kotlin ###
+.kotlin
+
+### Gradle ###
+gradle.properties
+
+### Local development overrides (may contain credentials) ###
+src/main/resources/application-local.yml
+
+### Heap Dumps ###
+*.hprof
+heapdump.hprof
+
+### Spring Boot ###
+spring-devtools.properties

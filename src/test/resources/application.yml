@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: ReactiveServiceTemplate
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    clean-disabled: false
+  # R2DBC and DataSource URLs are provided by TestDatabaseConfig

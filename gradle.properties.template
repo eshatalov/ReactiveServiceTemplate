@@ -1,0 +1,10 @@
+# Database configuration for Flyway Gradle tasks
+# Copy this file to gradle.properties and fill in your values
+#
+# Usage:
+#   cp gradle.properties.template gradle.properties
+#   # Edit gradle.properties with your actual credentials
+
+flyway.url=jdbc:postgresql://localhost:5432/YOUR_DATABASE_NAME
+flyway.user=YOUR_USERNAME
+flyway.password=YOUR_PASSWORD

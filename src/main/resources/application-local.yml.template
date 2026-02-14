@@ -1,0 +1,18 @@
+# Local development Spring Boot configuration
+# Copy this file to application-local.yml and fill in your values
+#
+# Usage:
+#   cp src/main/resources/application-local.yml.template src/main/resources/application-local.yml
+#   # Edit application-local.yml with your actual credentials
+#
+# Note: application-local.yml is gitignored to prevent committing credentials
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/YOUR_DATABASE_NAME
+    username: YOUR_USERNAME
+    password: YOUR_PASSWORD
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/YOUR_DATABASE_NAME
+    username: YOUR_USERNAME
+    password: YOUR_PASSWORD
