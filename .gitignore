@@ -11,6 +11,7 @@ build/
 Thumbs.db
 ehthumbs.db
 desktop.ini
+/nul
 
 ### STS ###
 .apt_generated
@@ -58,3 +59,6 @@ heapdump.hprof
 
 ### Spring Boot ###
 spring-devtools.properties
+
+### Claude Code ###
+.claude/settings.local.json
