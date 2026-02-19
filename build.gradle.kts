@@ -14,6 +14,7 @@ val postgresqlVersion = "42.7.9"
 val jooqVersion = "3.19.29"
 val zonkyEmbeddedPostgresVersion = "2.2.0"
 val mockkVersion = "1.13.16"
+val dbRiderVersion = "1.44.0"
 val javaVersion = 25
 
 buildscript {
@@ -81,6 +82,9 @@ dependencies {
 
     // Zonky embedded PostgreSQL for tests
     testImplementation("io.zonky.test:embedded-postgres:$zonkyEmbeddedPostgresVersion")
+
+    // Database Rider for declarative database testing
+    testImplementation("com.github.database-rider:rider-spring:$dbRiderVersion")
 }
 
 kotlin {

@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
 
 @Configuration
-class TestFlywayConfig() {
+class TestFlywayConfig {
 
     private val logger = LoggerFactory.getLogger(TestFlywayConfig::class.java)
 

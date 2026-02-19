@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.http.MediaType
 import org.springframework.test.web.reactive.server.WebTestClient
 import java.time.OffsetDateTime
+import java.util.UUID
 
 class TestTableHandlerTest {
 
@@ -33,8 +34,10 @@ class TestTableHandlerTest {
     @Test
     fun `GET should return all items`() {
         val now = OffsetDateTime.now()
-        val response1 = TestTableResponse(1, "Item 1", now, now)
-        val response2 = TestTableResponse(2, "Item 2", now, now)
+        val id1 = UUID.fromString("550e8400-e29b-41d4-a716-446655440000")
+        val id2 = UUID.fromString("550e8400-e29b-41d4-a716-446655440001")
+        val response1 = TestTableResponse(id1, "Item 1", now, now)
+        val response2 = TestTableResponse(id2, "Item 2", now, now)
         coEvery { service.findAll() } returns flowOf(response1, response2)
 
         webTestClient.get()
@@ -43,34 +46,36 @@ class TestTableHandlerTest {
             .exchange()
             .expectStatus().isOk
             .expectBody()
-            .jsonPath("$[0].id").isEqualTo(1)
+            .jsonPath("$[0].id").isEqualTo(id1.toString())
             .jsonPath("$[0].name").isEqualTo("Item 1")
-            .jsonPath("$[1].id").isEqualTo(2)
+            .jsonPath("$[1].id").isEqualTo(id2.toString())
             .jsonPath("$[1].name").isEqualTo("Item 2")
     }
 
     @Test
     fun `GET by id should return item`() {
         val now = OffsetDateTime.now()
-        val response = TestTableResponse(1, "Test Item", now, now)
-        coEvery { service.findById(1) } returns response
+        val id = UUID.fromString("550e8400-e29b-41d4-a716-446655440000")
+        val response = TestTableResponse(id, "Test Item", now, now)
+        coEvery { service.findById(id) } returns response
 
         webTestClient.get()
-            .uri("/1")
+            .uri("/$id")
             .accept(MediaType.APPLICATION_JSON)
             .exchange()
             .expectStatus().isOk
             .expectBody()
-            .jsonPath("$.id").isEqualTo(1)
+            .jsonPath("$.id").isEqualTo(id.toString())
             .jsonPath("$.name").isEqualTo("Test Item")
     }
 
     @Test
     fun `GET by id should return 404 when not found`() {
-        coEvery { service.findById(999) } throws NotFoundException("TestTable with id 999 not found")
+        val id = UUID.fromString("550e8400-e29b-41d4-a716-446655449999")
+        coEvery { service.findById(id) } throws NotFoundException("TestTable with id $id not found")
 
         webTestClient.get()
-            .uri("/999")
+            .uri("/$id")
             .accept(MediaType.APPLICATION_JSON)
             .exchange()
             .expectStatus().isNotFound
@@ -79,7 +84,8 @@ class TestTableHandlerTest {
     @Test
     fun `POST should create item and return 201`() {
         val now = OffsetDateTime.now()
-        val response = TestTableResponse(1, "New Item", now, now)
+        val id = UUID.fromString("550e8400-e29b-41d4-a716-446655440000")
+        val response = TestTableResponse(id, "New Item", now, now)
         coEvery { service.create(any()) } returns response
 
         webTestClient.post()
@@ -89,33 +95,35 @@ class TestTableHandlerTest {
             .exchange()
             .expectStatus().isCreated
             .expectBody()
-            .jsonPath("$.id").isEqualTo(1)
+            .jsonPath("$.id").isEqualTo(id.toString())
             .jsonPath("$.name").isEqualTo("New Item")
     }
 
     @Test
     fun `PUT should update item and return 200`() {
         val now = OffsetDateTime.now()
-        val response = TestTableResponse(1, "Updated Item", now, now)
-        coEvery { service.update(1, any()) } returns response
+        val id = UUID.fromString("550e8400-e29b-41d4-a716-446655440000")
+        val response = TestTableResponse(id, "Updated Item", now, now)
+        coEvery { service.update(id, any()) } returns response
 
         webTestClient.put()
-            .uri("/1")
+            .uri("/$id")
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue("""{"name":"Updated Item"}""")
             .exchange()
             .expectStatus().isOk
             .expectBody()
-            .jsonPath("$.id").isEqualTo(1)
+            .jsonPath("$.id").isEqualTo(id.toString())
             .jsonPath("$.name").isEqualTo("Updated Item")
     }
 
     @Test
     fun `PUT should return 404 when updating non-existent item`() {
-        coEvery { service.update(999, any()) } throws NotFoundException("TestTable with id 999 not found")
+        val id = UUID.fromString("550e8400-e29b-41d4-a716-446655449999")
+        coEvery { service.update(id, any()) } throws NotFoundException("TestTable with id $id not found")
 
         webTestClient.put()
-            .uri("/999")
+            .uri("/$id")
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue("""{"name":"Updated Item"}""")
             .exchange()
@@ -124,20 +132,22 @@ class TestTableHandlerTest {
 
     @Test
     fun `DELETE should delete item and return 204`() {
-        coEvery { service.delete(1) } returns Unit
+        val id = UUID.fromString("550e8400-e29b-41d4-a716-446655440000")
+        coEvery { service.delete(id) } returns Unit
 
         webTestClient.delete()
-            .uri("/1")
+            .uri("/$id")
             .exchange()
             .expectStatus().isNoContent
     }
 
     @Test
     fun `DELETE should return 404 when deleting non-existent item`() {
-        coEvery { service.delete(999) } throws NotFoundException("TestTable with id 999 not found")
+        val id = UUID.fromString("550e8400-e29b-41d4-a716-446655449999")
+        coEvery { service.delete(id) } throws NotFoundException("TestTable with id $id not found")
 
         webTestClient.delete()
-            .uri("/999")
+            .uri("/$id")
             .exchange()
             .expectStatus().isNotFound
     }

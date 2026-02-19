@@ -11,6 +11,8 @@ import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.jooq.kotlin.coroutines.transactionCoroutine
 import org.springframework.stereotype.Repository
+import java.time.OffsetDateTime
+import java.util.UUID
 
 @Repository
 class TestTableRepository(
@@ -24,7 +26,7 @@ class TestTableRepository(
             .map { it.into(TestTable::class.java) }
     }
 
-    suspend fun findById(id: Long): TestTable? {
+    suspend fun findById(id: UUID): TestTable? {
         return dsl
             .selectFrom(TEST_TABLE)
             .where(TEST_TABLE.ID.eq(id))
@@ -33,17 +35,22 @@ class TestTableRepository(
     }
 
     suspend fun insert(name: String): TestTable {
+        val now = OffsetDateTime.now()
+        val id = UUID.randomUUID()
         return dsl.transactionCoroutine { config ->
             config.dsl()
                 .insertInto(TEST_TABLE)
+                .set(TEST_TABLE.ID, id)
                 .set(TEST_TABLE.NAME, name)
+                .set(TEST_TABLE.CREATED_AT, now)
+                .set(TEST_TABLE.UPDATED_AT, now)
                 .returning()
                 .awaitFirst()
                 .into(TestTable::class.java)
         }
     }
 
-    suspend fun update(id: Long, name: String): TestTable? {
+    suspend fun update(id: UUID, name: String): TestTable? {
         return dsl.transactionCoroutine { config ->
             config.dsl()
                 .update(TEST_TABLE)
@@ -56,7 +63,7 @@ class TestTableRepository(
         }
     }
 
-    suspend fun deleteById(id: Long): Boolean {
+    suspend fun deleteById(id: UUID): Boolean {
         return dsl.transactionCoroutine { config ->
             config.dsl()
                 .deleteFrom(TEST_TABLE)
@@ -66,7 +73,7 @@ class TestTableRepository(
         }
     }
 
-    suspend fun existsById(id: Long): Boolean {
+    suspend fun existsById(id: UUID): Boolean {
         val count = dsl
             .select(DSL.count())
             .from(TEST_TABLE)

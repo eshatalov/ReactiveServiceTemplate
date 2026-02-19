@@ -1,0 +1,4 @@
+alwaysCleanBefore: true
+properties:
+  skipCleaningForTables:
+    - flyway_schema_history
