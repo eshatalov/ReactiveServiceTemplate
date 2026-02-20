@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.util.UUID
 
 @Service
 class TestTableService(
@@ -21,7 +22,7 @@ class TestTableService(
     }
 
     @Transactional(readOnly = true)
-    suspend fun findById(id: Long): TestTableResponse {
+    suspend fun findById(id: UUID): TestTableResponse {
         return repository.findById(id)
             ?.toResponse()
             ?: throw NotFoundException("TestTable with id $id not found")
@@ -33,14 +34,14 @@ class TestTableService(
     }
 
     @Transactional
-    suspend fun update(id: Long, request: UpdateTestTableRequest): TestTableResponse {
+    suspend fun update(id: UUID, request: UpdateTestTableRequest): TestTableResponse {
         return repository.update(id, request.name)
             ?.toResponse()
             ?: throw NotFoundException("TestTable with id $id not found")
     }
 
     @Transactional
-    suspend fun delete(id: Long) {
+    suspend fun delete(id: UUID) {
         if (!repository.deleteById(id)) {
             throw NotFoundException("TestTable with id $id not found")
         }

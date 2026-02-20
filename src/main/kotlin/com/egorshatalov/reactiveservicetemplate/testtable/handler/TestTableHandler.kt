@@ -10,6 +10,7 @@ import org.springframework.web.reactive.function.server.ServerResponse
 import org.springframework.web.reactive.function.server.bodyAndAwait
 import org.springframework.web.reactive.function.server.bodyValueAndAwait
 import org.springframework.web.reactive.function.server.buildAndAwait
+import java.util.UUID
 
 @Component
 class TestTableHandler(
@@ -22,7 +23,7 @@ class TestTableHandler(
     }
 
     suspend fun findById(request: ServerRequest): ServerResponse {
-        val id = request.pathVariable("id").toLong()
+        val id = UUID.fromString(request.pathVariable("id"))
         val response = service.findById(id)
         return ServerResponse.ok().bodyValueAndAwait(response)
     }
@@ -34,14 +35,14 @@ class TestTableHandler(
     }
 
     suspend fun update(request: ServerRequest): ServerResponse {
-        val id = request.pathVariable("id").toLong()
+        val id = UUID.fromString(request.pathVariable("id"))
         val updateRequest = request.bodyToMono(UpdateTestTableRequest::class.java).awaitSingle()
         val response = service.update(id, updateRequest)
         return ServerResponse.ok().bodyValueAndAwait(response)
     }
 
     suspend fun delete(request: ServerRequest): ServerResponse {
-        val id = request.pathVariable("id").toLong()
+        val id = UUID.fromString(request.pathVariable("id"))
         service.delete(id)
         return ServerResponse.noContent().buildAndAwait()
     }

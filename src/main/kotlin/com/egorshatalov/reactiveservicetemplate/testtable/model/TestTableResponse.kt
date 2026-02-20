@@ -1,19 +1,21 @@
 package com.egorshatalov.reactiveservicetemplate.testtable.model
 
+import com.egorshatalov.reactiveservicetemplate.jooq.tables.pojos.TestTable
 import java.time.OffsetDateTime
+import java.util.UUID
 
 data class TestTableResponse(
-    val id: Long,
+    val id: UUID,
     val name: String,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime
 )
 
-fun com.egorshatalov.reactiveservicetemplate.jooq.tables.pojos.TestTable.toResponse(): TestTableResponse {
+fun TestTable.toResponse(): TestTableResponse {
     return TestTableResponse(
-        id = this.id ?: throw IllegalStateException("ID should not be null for persisted entity"),
+        id = this.id,
         name = this.name,
-        createdAt = this.createdAt ?: throw IllegalStateException("createdAt should not be null for persisted entity"),
-        updatedAt = this.updatedAt ?: throw IllegalStateException("updatedAt should not be null for persisted entity")
+        createdAt = this.createdAt,
+        updatedAt = this.updatedAt
     )
 }

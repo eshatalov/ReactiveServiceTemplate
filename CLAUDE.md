@@ -25,14 +25,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Service-layer `@Transactional` works via R2DBC connection factory proxy
 - Model mapping via extension functions (e.g., `TestTable.toResponse()`)
 - Never use optional Kotlin types for mandatory fields
+- Always prefer imports to fully qualified class names
+- Always remove unused imports and resources
 - Always perform ./gradlew clean test after making changes and fix all warnings
 - All versions in `build.gradle.kts` should be variables
+- When adding new dependencies, ensure they are up to date
+- Please add comments to your code when the solution is not obvious or you were needed to test several approaches
+- Please write high-level docs in @docs/ folder
 
 **Database Patterns:**
-1. Create migration file in `src/main/resources/db/migration/`
-2. Run `./gradlew build` - jOOQ classes regenerate automatically
-3. Use generated classes in repository (e.g., `TEST_TABLE`, `TestTable` POJO)
-4. Never use optional Kotlin types for non-nullable fields
+- Create migration file in `src/main/resources/db/migration/`
+- When creating migration, think about data migration when needed
+- Run `./gradlew build` - jOOQ classes regenerate automatically
+- Use generated classes in repository (e.g., `TEST_TABLE`, `TestTable` POJO)
+- Don't use defaults in database schema, generation of id/uuid/timestamp should be explicit and code-based
+- Never use optional Kotlin types for non-nullable fields
+- For AbstractContextTests child tests use @DataSet instead of inserts for initial state and @ExpectedDataSet for validation
+- Use separate folders for repository and scenario datasets, datasets for each repository also should be in a separate folder
 
 ## Testing
 
