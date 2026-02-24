@@ -27,10 +27,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Never use optional Kotlin types for mandatory fields
 - Always prefer imports to fully qualified class names
 - Always remove unused imports and resources
-- Always perform ./gradlew clean test after making changes and fix all warnings
 - All versions in `build.gradle.kts` should be variables
 - When adding new dependencies, ensure they are up to date
-- Please add comments to your code when the solution is not obvious or you were needed to test several approaches
+- IMPORTANT: After changing `build.gradle.kts`, always run ./gradlew clean nativeCompile test
+- Always consider fixing warning on build or application context startup during tests execution
+- Please add comments to your code when the solution is not obvious, or you need to test several approaches
 - Please write high-level docs in @docs/ folder
 
 **Database Patterns:**
