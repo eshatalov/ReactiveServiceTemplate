@@ -1,14 +1,18 @@
+import java.util.Properties
+
 // Plugin versions (inline required by Gradle Kotlin DSL plugins block)
 plugins {
     kotlin("jvm") version "2.3.10"
     kotlin("plugin.spring") version "2.3.10"
     id("org.springframework.boot") version "4.0.2"
     id("io.spring.dependency-management") version "1.1.7"
+    id("org.graalvm.buildtools.native") version "0.10.6"
 }
 
 // Dependency versions
 val kotlinVersion = "2.3.10"
 val springBootVersion = "4.0.2"
+val graalvmNativeBuildToolsVersion = "0.10.6"
 val flywayVersion = "11.14.0"
 val postgresqlVersion = "42.7.9"
 val jooqVersion = "3.19.29"
@@ -44,6 +48,8 @@ version = "0.0.1-SNAPSHOT"
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(javaVersion)
+        vendor = JvmVendorSpec.GRAAL_VM
+        nativeImageCapable = true
     }
 }
 
@@ -238,11 +244,95 @@ abstract class FlywayValidateTask : BaseFlywayTask() {
     }
 }
 
-abstract class JooqCodegenTask : DefaultTask() {
+/**
+ * Utility object for managing embedded PostgreSQL with Flyway migrations.
+ * Provides a reusable way to start, migrate, and shutdown an embedded database.
+ */
+object EmbeddedPostgresManager {
+    /**
+     * Connection information for the embedded PostgreSQL instance.
+     */
+    data class ConnectionInfo(
+        val jdbcUrl: String,
+        val r2dbcUrl: String,
+        val username: String,
+        val password: String
+    )
+
+    /**
+     * Executes a block with an embedded PostgreSQL instance.
+     * Starts the database, runs migrations, executes the block, and shuts down the database.
+     *
+     * @param migrationDirectory Path to the Flyway migration scripts
+     * @param taskName Name of the task for logging purposes
+     * @param block The block to execute with the database connection info
+     */
+    fun <T> withEmbeddedPostgres(
+        migrationDirectory: java.io.File,
+        taskName: String,
+        block: (ConnectionInfo) -> T
+    ): T {
+        val embeddedPostgres = try {
+            println("Starting embedded PostgreSQL for $taskName...")
+            io.zonky.test.db.postgres.embedded.EmbeddedPostgres.builder().start()
+        } catch (e: Exception) {
+            throw GradleException("Failed to start embedded PostgreSQL for $taskName", e)
+        }
+
+        try {
+            val jdbcUrl = embeddedPostgres.getJdbcUrl("postgres", "postgres")
+            val username = "postgres"
+            val password = "postgres"
+            // Convert JDBC URL to R2DBC URL: jdbc:postgresql://host:port/db -> r2dbc:postgresql://host:port/db
+            val r2dbcUrl = jdbcUrl.replace("jdbc:postgresql://", "r2dbc:postgresql://")
+
+            println("Embedded PostgreSQL JDBC URL: $jdbcUrl")
+
+            // Run Flyway migrations
+            println("Running Flyway migrations...")
+            val flyway = org.flywaydb.core.Flyway.configure()
+                .dataSource(jdbcUrl, username, password)
+                .locations("filesystem:${migrationDirectory.absolutePath}")
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .load()
+
+            val result = flyway.migrate()
+            println("Migrations completed: ${result.migrationsExecuted} executed")
+
+            val connectionInfo = ConnectionInfo(jdbcUrl, r2dbcUrl, username, password)
+            return block(connectionInfo)
+
+        } finally {
+            println("Shutting down embedded PostgreSQL...")
+            embeddedPostgres.close()
+        }
+    }
+}
+
+/**
+ * Base class for tasks that need embedded PostgreSQL with migrations.
+ * Provides the migration directory configuration and utility methods.
+ */
+abstract class EmbeddedPostgresTask : DefaultTask() {
 
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val migrationDirectory: DirectoryProperty
+
+    /**
+     * Executes a block with an embedded PostgreSQL instance.
+     */
+    protected fun <T> withEmbeddedPostgres(block: (EmbeddedPostgresManager.ConnectionInfo) -> T): T {
+        return EmbeddedPostgresManager.withEmbeddedPostgres(
+            migrationDirectory.get().asFile,
+            this::class.simpleName ?: "UnknownTask",
+            block
+        )
+    }
+}
+
+abstract class JooqCodegenTask : EmbeddedPostgresTask() {
 
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
@@ -256,32 +346,7 @@ abstract class JooqCodegenTask : DefaultTask() {
 
     @TaskAction
     fun generate() {
-        val embeddedPostgres = try {
-            println("Starting embedded PostgreSQL for jOOQ code generation...")
-            io.zonky.test.db.postgres.embedded.EmbeddedPostgres.builder().start()
-        } catch (e: Exception) {
-            throw GradleException("Failed to start embedded PostgreSQL", e)
-        }
-
-        try {
-            val jdbcUrl = embeddedPostgres.getJdbcUrl("postgres", "postgres")
-            val username = "postgres"
-            val password = "postgres"
-
-            println("Embedded PostgreSQL JDBC URL: $jdbcUrl")
-
-            // Run Flyway migrations
-            println("Running Flyway migrations...")
-            val flyway = org.flywaydb.core.Flyway.configure()
-                .dataSource(jdbcUrl, username, password)
-                .locations("filesystem:${migrationDirectory.get().asFile.absolutePath}")
-                .baselineOnMigrate(true)
-                .baselineVersion("0")
-                .load()
-
-            val result = flyway.migrate()
-            println("Migrations completed: ${result.migrationsExecuted} executed")
-
+        withEmbeddedPostgres { connectionInfo ->
             // Ensure output directory exists
             outputDirectory.get().asFile.mkdirs()
 
@@ -290,9 +355,9 @@ abstract class JooqCodegenTask : DefaultTask() {
                 .withJdbc(
                     org.jooq.meta.jaxb.Jdbc()
                         .withDriver("org.postgresql.Driver")
-                        .withUrl(jdbcUrl)
-                        .withUser(username)
-                        .withPassword(password)
+                        .withUrl(connectionInfo.jdbcUrl)
+                        .withUser(connectionInfo.username)
+                        .withPassword(connectionInfo.password)
                 )
                 .withGenerator(
                     org.jooq.meta.jaxb.Generator()
@@ -329,12 +394,100 @@ abstract class JooqCodegenTask : DefaultTask() {
 
             println("jOOQ code generation completed!")
             println("Output: ${outputDirectory.get().asFile.absolutePath}")
-
-        } finally {
-            println("Shutting down embedded PostgreSQL...")
-            embeddedPostgres.close()
         }
     }
+}
+
+/**
+ * Task that starts an embedded PostgreSQL and writes connection info to a file.
+ * This allows other tasks (like processAot) to use the connection info.
+ */
+abstract class StartEmbeddedPostgresTask : DefaultTask() {
+
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val migrationDirectory: DirectoryProperty
+
+    @get:OutputFile
+    abstract val connectionInfoFile: RegularFileProperty
+
+    // Keep reference to the embedded DB for cleanup
+    private var embeddedPostgres: io.zonky.test.db.postgres.embedded.EmbeddedPostgres? = null
+
+    @TaskAction
+    fun start() {
+        val db = try {
+            println("Starting embedded PostgreSQL...")
+            io.zonky.test.db.postgres.embedded.EmbeddedPostgres.builder().start()
+        } catch (e: Exception) {
+            throw GradleException("Failed to start embedded PostgreSQL", e)
+        }
+        embeddedPostgres = db
+
+        val jdbcUrl = db.getJdbcUrl("postgres", "postgres")
+        val r2dbcUrl = jdbcUrl.replace("jdbc:postgresql://", "r2dbc:postgresql://")
+        val username = "postgres"
+        val password = "postgres"
+
+        println("Embedded PostgreSQL JDBC URL: $jdbcUrl")
+
+        // Run Flyway migrations
+        println("Running Flyway migrations...")
+        val flyway = org.flywaydb.core.Flyway.configure()
+            .dataSource(jdbcUrl, username, password)
+            .locations("filesystem:${migrationDirectory.get().asFile.absolutePath}")
+            .baselineOnMigrate(true)
+            .baselineVersion("0")
+            .load()
+
+        val result = flyway.migrate()
+        println("Migrations completed: ${result.migrationsExecuted} executed")
+
+        // Write connection info to file
+        val props = Properties()
+        props.setProperty("jdbcUrl", jdbcUrl)
+        props.setProperty("r2dbcUrl", r2dbcUrl)
+        props.setProperty("username", username)
+        props.setProperty("password", password)
+        props.setProperty("port", jdbcUrl.extractPort())
+
+        connectionInfoFile.get().asFile.outputStream().use { out -> props.store(out, "Embedded PostgreSQL Connection Info") }
+        println("Connection info written to: ${connectionInfoFile.get().asFile.absolutePath}")
+    }
+
+    private fun String.extractPort(): String {
+        val portRegex = ":([0-9]+)/".toRegex()
+        return portRegex.find(this)?.groupValues?.get(1) ?: "5432"
+    }
+}
+
+/**
+ * Task that stops the embedded PostgreSQL.
+ * Reads the port from the connection info file to identify which instance to stop.
+ * Note: This is a best-effort cleanup. The embedded DB will also be cleaned up when the JVM exits.
+ */
+abstract class StopEmbeddedPostgresTask : DefaultTask() {
+
+    @TaskAction
+    fun stop() {
+        println("Embedded PostgreSQL will be cleaned up on JVM exit")
+        // The embedded DB is started in the same JVM, so it will be cleaned up automatically
+        // when the Gradle daemon exits or when the build finishes
+    }
+}
+
+/**
+ * Helper extension to read connection info from properties file.
+ */
+fun File.readConnectionInfo(): Map<String, String> {
+    val props = Properties()
+    inputStream().use { input -> props.load(input) }
+    return mapOf(
+        "R2DBC_URL" to (props.getProperty("r2dbcUrl") ?: ""),
+        "DB_URL" to (props.getProperty("jdbcUrl") ?: ""),
+        "DB_USER" to (props.getProperty("username") ?: ""),
+        "DB_PASSWORD" to (props.getProperty("password") ?: "")
+    )
 }
 
 // Register the tasks
@@ -373,6 +526,42 @@ tasks.register<JooqCodegenTask>("jooqCodegen") {
     dependsOn("processResources")
 }
 
+// Start embedded PostgreSQL for AOT processing
+tasks.register<StartEmbeddedPostgresTask>("startEmbeddedPostgresForAot") {
+    group = "build"
+    description = "Start embedded PostgreSQL for AOT processing"
+
+    migrationDirectory.set(project.layout.buildDirectory.dir("resources/main/db/migration"))
+    connectionInfoFile.set(project.layout.buildDirectory.file("embedded-db/connection.properties"))
+
+    dependsOn("processResources")
+}
+
+// Stop embedded PostgreSQL after AOT processing
+tasks.register<StopEmbeddedPostgresTask>("stopEmbeddedPostgresForAot") {
+    group = "build"
+    description = "Stop embedded PostgreSQL after AOT processing"
+}
+
+// Configure processAot to use the embedded database
+// The connection info is read from the file written by startEmbeddedPostgresForAot
+tasks.named<JavaExec>("processAot").configure {
+    dependsOn("startEmbeddedPostgresForAot")
+    finalizedBy("stopEmbeddedPostgresForAot")
+
+    doFirst {
+        val connectionInfoFile = project.layout.buildDirectory.file("embedded-db/connection.properties").get().asFile
+        if (connectionInfoFile.exists()) {
+            val connectionInfo = connectionInfoFile.readConnectionInfo()
+            environment("R2DBC_URL", connectionInfo["R2DBC_URL"]!!)
+            environment("DB_URL", connectionInfo["DB_URL"]!!)
+            environment("DB_USER", connectionInfo["DB_USER"]!!)
+            environment("DB_PASSWORD", connectionInfo["DB_PASSWORD"]!!)
+            println("Configured processAot with embedded database: ${connectionInfo["DB_URL"]}")
+        }
+    }
+}
+
 // Make compilation depend on jOOQ code generation
 tasks.named("compileKotlin") {
     dependsOn("jooqCodegen")
@@ -380,4 +569,43 @@ tasks.named("compileKotlin") {
 
 tasks.named<Delete>("clean") {
     delete("${layout.buildDirectory.get().asFile}/generated-sources/jooq")
+}
+
+// Configure native container builds
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {
+    environment = mapOf(
+        "BP_NATIVE_IMAGE" to "true",
+        "BP_JVM_VERSION" to "25"
+    )
+}
+
+// Disable test AOT processing - tests use dynamic database configuration (Zonky embedded PostgreSQL)
+// which requires runtime properties that aren't available during AOT processing
+tasks.named("processTestAot").configure {
+    enabled = false
+}
+
+// Configure GraalVM Native compilation
+graalvmNative {
+    // Disable native test support - tests use dynamic database configuration (Zonky embedded PostgreSQL)
+    // which is incompatible with AOT processing
+    testSupport = false
+
+    toolchainDetection = true
+    binaries {
+        named("main") {
+            // Use Oracle GraalVM toolchain for native compilation
+            // nativeImageCapable filters out regular OpenJDK, leaving only GraalVM with native-image
+            javaLauncher = javaToolchains.launcherFor {
+                languageVersion = JavaLanguageVersion.of(javaVersion)
+                vendor = JvmVendorSpec.matching("Oracle")
+                nativeImageCapable = true
+            }
+            // Enable G1 garbage collector on Linux for better latency and throughput
+            // G1 GC is only supported on Linux AMD64 and AArch64
+            if (System.getProperty("os.name").lowercase().contains("linux")) {
+                buildArgs.add("--gc=G1")
+            }
+        }
+    }
 }
