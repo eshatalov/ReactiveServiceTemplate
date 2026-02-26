@@ -1,6 +1,9 @@
 CREATE TABLE IF NOT EXISTS test_table (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
+    event_date DATE NOT NULL,
+    event_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+    metadata JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL
 );

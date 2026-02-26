@@ -30,12 +30,23 @@ class TestTableService(
 
     @Transactional
     suspend fun create(request: CreateTestTableRequest): TestTableResponse {
-        return repository.insert(request.name).toResponse()
+        return repository.insert(
+            name = request.name,
+            eventDate = request.eventDate,
+            eventTimestamp = request.eventTimestamp,
+            metadata = request.metadata
+        ).toResponse()
     }
 
     @Transactional
     suspend fun update(id: UUID, request: UpdateTestTableRequest): TestTableResponse {
-        return repository.update(id, request.name)
+        return repository.update(
+            id = id,
+            name = request.name,
+            eventDate = request.eventDate,
+            eventTimestamp = request.eventTimestamp,
+            metadata = request.metadata
+        )
             ?.toResponse()
             ?: throw NotFoundException("TestTable with id $id not found")
     }

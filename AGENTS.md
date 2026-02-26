@@ -31,7 +31,7 @@
 - Run `./gradlew build` - jOOQ classes regenerate automatically
 - Use generated classes in repository (e.g., `TEST_TABLE`, `TestTable` POJO)
 - Don't use defaults in database schema, generation of id/uuid/timestamp should be explicit and code-based
-- Never use optional Kotlin types for non-nullable fields
+- Never use optional Kotlin types for non-nullable fields. Please don't use nullability without a strong reason
 - For AbstractContextTests child tests use @DataSet instead of inserts for initial state and @ExpectedDataSet for validation
 - Use separate folders for repository and scenario datasets, datasets for each repository also should be in a separate folder
 
