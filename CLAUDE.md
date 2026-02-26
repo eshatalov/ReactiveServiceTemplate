@@ -18,6 +18,7 @@
 - Always remove unused imports and resources
 - All versions in `build.gradle.kts` should be variables
 - When adding new dependencies, ensure they are up to date
+- Use jackson 3 only for all components supporting it
 - IMPORTANT: After changing `build.gradle.kts`, always run ./gradlew clean nativeCompile test
 - IMPORTANT: After any changes, always run ./gradlew clean test
 - Always consider fixing warning on build or application context startup during tests execution
