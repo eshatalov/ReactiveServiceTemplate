@@ -18,7 +18,7 @@
 - Always remove unused imports and resources
 - All versions in `build.gradle.kts` should be variables
 - When adding new dependencies, ensure they are up to date
-- Use jackson 3 only for all components supporting it
+- Use jackson 3 for all components supporting it
 - IMPORTANT: After changing `build.gradle.kts`, always run ./gradlew clean nativeCompile test
 - IMPORTANT: After any changes, always run ./gradlew clean test
 - Always consider fixing warning on build or application context startup during tests execution
@@ -44,6 +44,7 @@ Tests use Zonky embedded PostgreSQL with Flyway auto-migration.
 - In spring context tests never use class-wide annotations on test classes
 - In spring context tests never use mocked beans in test classes to keep spring context clean
 - Instead of mocks in a spring context test, add spies to AbstractContextTests to keep spring context clean
+- Write tests for all application layers
 - Never use sleep in tests
 
 Tests are organized by layer:
