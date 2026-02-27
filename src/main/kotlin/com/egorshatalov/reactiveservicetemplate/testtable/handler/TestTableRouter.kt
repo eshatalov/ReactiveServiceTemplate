@@ -25,10 +25,5 @@ class TestTableRouter {
             ServerResponse.status(HttpStatus.NOT_FOUND)
                 .bodyValueAndAwait(mapOf("error" to (exception.message ?: "Resource not found")))
         }
-
-        onError<IllegalArgumentException> { exception, _ ->
-            ServerResponse.status(HttpStatus.BAD_REQUEST)
-                .bodyValueAndAwait(mapOf("error" to (exception.message ?: "Invalid request")))
-        }
     }
 }
