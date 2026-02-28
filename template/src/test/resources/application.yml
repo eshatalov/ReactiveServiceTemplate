@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: Template
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    clean-disabled: false
+    schemas: template
+    create-schemas: true
+  # R2DBC and DataSource URLs are provided by TestDatabaseConfig

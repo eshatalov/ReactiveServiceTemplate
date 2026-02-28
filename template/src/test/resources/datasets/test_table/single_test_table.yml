@@ -1,0 +1,8 @@
+TEST_TABLE:
+  - ID: "550e8400-e29b-41d4-a716-446655440000"
+    NAME: "Original Name"
+    EVENT_DATE: "2024-01-01"
+    EVENT_TIMESTAMP: "2024-01-01 00:00:00"
+    METADATA: "{\"item\": \"Original\", \"description\": \"Original description\"}"
+    CREATED_AT: "2024-01-01 00:00:00"
+    UPDATED_AT: "2024-01-01 00:00:00"

@@ -48,10 +48,10 @@ out/
 .kotlin
 
 ### Gradle ###
-gradle.properties
+/gradle.properties
 
 ### Local development overrides (may contain credentials) ###
-src/main/resources/application-local.yml
+**/src/main/resources/application-local.yml
 
 ### Heap Dumps ###
 *.hprof
