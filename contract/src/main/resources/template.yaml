@@ -1,0 +1,338 @@
+openapi: 3.1.0
+info:
+  title: Template API
+  description: |
+    RESTful API for managing TestTable entities.
+
+    Built with Spring Boot 4 + WebFlux + Kotlin Coroutines + jOOQ + R2DBC + PostgreSQL.
+  version: 1.0.0
+  contact:
+    name: Egor Shatalov
+  license:
+    name: MIT
+    identifier: MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: TestTable
+    description: Operations for managing test table records
+
+paths:
+  /api/test-tables:
+    get:
+      tags:
+        - TestTable
+      summary: Get all test table records
+      description: Retrieves all test table records from the database as a streaming response.
+      operationId: getAllTestTables
+      responses:
+        '200':
+          description: Successfully retrieved all test table records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TestTableResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - TestTable
+      summary: Create a new test table record
+      description: Creates a new test table record with the provided data. The id, createdAt, and updatedAt fields are auto-generated.
+      operationId: createTestTable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveTestTableRequest'
+            examples:
+              validRequest:
+                summary: Valid creation request
+                value:
+                  name: "Test Event"
+                  eventDate: "2024-01-15"
+                  eventTimestamp: "2024-01-15T10:30:00+03:00"
+                  metadata:
+                    item: "Sample Item"
+                    description: "Sample description for the event"
+      responses:
+        '201':
+          description: Successfully created the test table record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestTableResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/test-tables/{id}:
+    get:
+      tags:
+        - TestTable
+      summary: Get a test table record by ID
+      description: Retrieves a single test table record by its unique identifier.
+      operationId: getTestTableById
+      parameters:
+        - $ref: '#/components/parameters/TestTableId'
+      responses:
+        '200':
+          description: Successfully retrieved the test table record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestTableResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags:
+        - TestTable
+      summary: Update a test table record
+      description: Updates an existing test table record with the provided data. The updatedAt field is automatically refreshed.
+      operationId: updateTestTable
+      parameters:
+        - $ref: '#/components/parameters/TestTableId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveTestTableRequest'
+            examples:
+              validRequest:
+                summary: Valid update request
+                value:
+                  name: "Updated Event"
+                  eventDate: "2024-02-20"
+                  eventTimestamp: "2024-02-20T14:45:00+03:00"
+                  metadata:
+                    item: "Updated Item"
+                    description: "Updated description"
+      responses:
+        '200':
+          description: Successfully updated the test table record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestTableResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+        - TestTable
+      summary: Delete a test table record
+      description: Deletes a test table record by its unique identifier.
+      operationId: deleteTestTable
+      parameters:
+        - $ref: '#/components/parameters/TestTableId'
+      responses:
+        '204':
+          description: Successfully deleted the test table record
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    TestTableId:
+      name: id
+      in: path
+      description: The unique identifier of the test table record
+      required: true
+      schema:
+        $ref: '#/components/schemas/UUID'
+
+  schemas:
+    UUID:
+      type: string
+      format: uuid
+      pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+      example: '550e8400-e29b-41d4-a716-446655440000'
+      description: A universally unique identifier (UUID)
+
+    TestTableMetadata:
+      type: object
+      description: Metadata associated with a test table record
+      required:
+        - item
+        - description
+      properties:
+        item:
+          type: string
+          description: The item name
+          examples:
+            - "Sample Item"
+        description:
+          type: string
+          description: A description of the item
+          examples:
+            - "Sample description for the event"
+
+    SaveTestTableRequest:
+      type: object
+      description: Request body for creating or updating a test table record
+      required:
+        - name
+        - eventDate
+        - eventTimestamp
+        - metadata
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          description: The name of the test table record
+          examples:
+            - "Test Event"
+        eventDate:
+          type: string
+          format: date
+          description: The date of the event
+          examples:
+            - "2024-01-15"
+        eventTimestamp:
+          type: string
+          format: date-time
+          description: The timestamp of the event with timezone information
+          examples:
+            - "2024-01-15T10:30:00+03:00"
+        metadata:
+          $ref: '#/components/schemas/TestTableMetadata'
+
+    TestTableResponse:
+      type: object
+      description: Response body for a test table record
+      required:
+        - id
+        - name
+        - eventDate
+        - eventTimestamp
+        - metadata
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        name:
+          type: string
+          maxLength: 255
+          description: The name of the test table record
+          examples:
+            - "Test Event"
+        eventDate:
+          type: string
+          format: date
+          description: The date of the event
+          examples:
+            - "2024-01-15"
+        eventTimestamp:
+          type: string
+          format: date-time
+          description: The timestamp of the event with timezone information
+          examples:
+            - "2024-01-15T10:30:00+03:00"
+        metadata:
+          $ref: '#/components/schemas/TestTableMetadata'
+        createdAt:
+          type: string
+          format: date-time
+          description: The timestamp when the record was created
+          examples:
+            - "2024-01-15T10:00:00+03:00"
+        updatedAt:
+          type: string
+          format: date-time
+          description: The timestamp when the record was last updated
+          examples:
+            - "2024-01-15T10:00:00+03:00"
+
+    ProblemDetail:
+      type: object
+      description: RFC 9457 Problem Detail error response
+      required:
+        - type
+        - title
+        - status
+        - detail
+        - instance
+      properties:
+        type:
+          type: string
+          format: uri
+          description: A URI reference that identifies the problem type
+          examples:
+            - "about:blank"
+        title:
+          type: string
+          description: A short, human-readable summary of the problem type
+          examples:
+            - "Bad Request"
+        status:
+          type: integer
+          description: The HTTP status code
+          examples:
+            - 400
+        detail:
+          type: string
+          description: A human-readable explanation specific to this occurrence
+          examples:
+            - "Invalid value for field 'name': Name is required"
+        instance:
+          type: string
+          format: uri
+          description: A URI reference that identifies the specific occurrence
+          examples:
+            - "/api/test-tables"
+
+  responses:
+    BadRequest:
+      description: Bad request - validation error or malformed JSON
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "about:blank"
+            title: "Bad Request"
+            status: 400
+            detail: "Invalid value for field 'name': Name is required"
+            instance: "/api/test-tables"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "about:blank"
+            title: "Not Found"
+            status: 404
+            detail: "Resource not found"
+            instance: "/api/test-tables/550e8400-e29b-41d4-a716-446655440000"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "about:blank"
+            title: "Internal Server Error"
+            status: 500
+            detail: "An unexpected error occurred"
+            instance: "/api/test-tables"

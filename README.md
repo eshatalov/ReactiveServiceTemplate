@@ -1,4 +1,4 @@
-# ReactiveServiceTemplate
+# Template
 
 A vibecoded template for coding agents to use as a starting point for backend services.
 The project emphasizes testing and strictness, which may result in higher token consumption.

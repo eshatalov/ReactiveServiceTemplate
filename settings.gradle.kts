@@ -138,3 +138,6 @@ toolchainManagement {
 }
 
 rootProject.name = "ReactiveServiceTemplate"
+
+include("template")
+include("contract")

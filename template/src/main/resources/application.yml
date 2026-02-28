@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: Template
+  r2dbc:
+    url: ${R2DBC_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    properties:
+      schema: template
+  flyway:
+    enabled: true
+    url: ${DB_URL}
+    user: ${DB_USER}
+    password: ${DB_PASSWORD}
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: "0"
+    schemas: template
