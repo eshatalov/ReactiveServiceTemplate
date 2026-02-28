@@ -1,3 +1,4 @@
+import java.nio.file.Files
 import java.util.Properties
 
 // Plugin versions (inline required by Gradle Kotlin DSL plugins block)
@@ -20,6 +21,7 @@ val zonkyEmbeddedPostgresVersion = "2.2.0"
 val mockkVersion = "1.13.16"
 val dbRiderVersion = "1.44.0"
 val javaVersion = 25
+val isWindows = System.getProperty("os.name").lowercase().contains("windows")
 
 buildscript {
     // Dependency versions for buildscript classpath
@@ -48,8 +50,7 @@ version = "0.0.1-SNAPSHOT"
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(javaVersion)
-        vendor = JvmVendorSpec.GRAAL_VM
-        nativeImageCapable = true
+        vendor = JvmVendorSpec.ORACLE
     }
 }
 
@@ -585,6 +586,79 @@ tasks.named("processTestAot").configure {
     enabled = false
 }
 
+// Fixes GraalVM toolchain so that bin/ contains working native-image executables.
+// Iterates ALL oracle_corporation directories in ~/.gradle/jdks/ directly (no toolchain resolution)
+// to avoid chicken-and-egg: this must run BEFORE Gradle checks NATIVE_IMAGE capability.
+// - Linux/macOS (tar.gz): Gradle's extraction breaks symlinks, making bin/native-image a 0-byte file.
+//   This task restores symlinks pointing to ../lib/svm/bin/native-image.
+// - Windows (zip): GraalVM ships bin/native-image.cmd (batch wrapper) but the actual native-image.exe
+//   lives in lib/svm/bin/. Gradle needs bin/native-image.exe for NATIVE_IMAGE capability detection.
+//   This task copies the exe from lib/svm/bin/ to bin/.
+val fixGraalVmSymlinks by tasks.registering {
+    doLast {
+        val gradleJdks = File(System.getProperty("user.home"), ".gradle/jdks")
+        if (!gradleJdks.exists()) return@doLast
+
+        // If settings.gradle.kts just fixed native-image, the daemon's in-memory JDK metadata
+        // cache is stale (it cached "no NATIVE_IMAGE" from a previous session). A daemon restart
+        // is required for the fix to take effect.
+        val markerFile = gradleJdks.resolve(".graalvm-fix-applied")
+        if (markerFile.exists()) {
+            markerFile.delete()
+            throw GradleException(
+                "GraalVM native-image installation was just fixed. " +
+                "The Gradle daemon must be restarted to refresh its JDK metadata cache.\n" +
+                "Please run: ./gradlew --stop && ./gradlew clean nativeCompile test"
+            )
+        }
+
+        // Finds the Java Home directory within a Gradle JDK installation directory.
+        // Handles different layouts:
+        // - Direct: <jdkDir>/bin/java (Linux extracted)
+        // - macOS: <jdkDir>/<name>/Contents/Home/bin/java
+        // - Nested: <jdkDir>/<name>/bin/java (some Linux extractions)
+        fun findJavaHome(jdkDir: File): File? {
+            val javaName = if (isWindows) "java.exe" else "java"
+            if (jdkDir.resolve("bin/$javaName").exists()) return jdkDir
+            jdkDir.listFiles()?.filter { it.isDirectory && !it.name.startsWith(".") }?.forEach { subDir ->
+                val contentsHome = subDir.resolve("Contents/Home")
+                if (contentsHome.resolve("bin/$javaName").exists()) return contentsHome
+                if (subDir.resolve("bin/$javaName").exists()) return subDir
+            }
+            return null
+        }
+
+        gradleJdks.listFiles()
+            ?.filter { it.isDirectory && it.name.startsWith("oracle_corporation") }
+            ?.forEach { jdkDir ->
+                val javaHome = findJavaHome(jdkDir) ?: return@forEach
+                val binDir = javaHome.resolve("bin")
+                val svmBinDir = javaHome.resolve("lib/svm/bin")
+
+                if (!svmBinDir.exists() || !binDir.exists()) return@forEach
+
+                svmBinDir.listFiles()?.forEach { svmBinary ->
+                    val binFile = binDir.resolve(svmBinary.name)
+                    val needsFix = (!binFile.exists() || binFile.length() == 0L) && svmBinary.length() > 0L
+                    if (!needsFix) return@forEach
+
+                    if (binFile.exists()) binFile.delete()
+
+                    if (isWindows) {
+                        svmBinary.copyTo(binFile)
+                        logger.lifecycle("Copied: lib/svm/bin/${svmBinary.name} -> bin/${svmBinary.name}")
+                    } else {
+                        Files.createSymbolicLink(
+                            binFile.toPath(),
+                            binFile.toPath().parent.relativize(svmBinary.toPath())
+                        )
+                        logger.lifecycle("Fixed symlink: bin/${svmBinary.name} -> ${binFile.toPath().parent.relativize(svmBinary.toPath())}")
+                    }
+                }
+            }
+    }
+}
+
 // Configure GraalVM Native compilation
 graalvmNative {
     // Disable native test support - tests use dynamic database configuration (Zonky embedded PostgreSQL)
@@ -594,11 +668,9 @@ graalvmNative {
     toolchainDetection = true
     binaries {
         named("main") {
-            // Use Oracle GraalVM toolchain for native compilation
-            // nativeImageCapable filters out regular OpenJDK, leaving only GraalVM with native-image
             javaLauncher = javaToolchains.launcherFor {
                 languageVersion = JavaLanguageVersion.of(javaVersion)
-                vendor = JvmVendorSpec.matching("Oracle")
+                vendor = JvmVendorSpec.ORACLE
                 nativeImageCapable = true
             }
             // Enable G1 garbage collector on Linux for better latency and throughput
@@ -608,4 +680,8 @@ graalvmNative {
             }
         }
     }
+}
+
+tasks.named("nativeCompile") {
+    dependsOn(fixGraalVmSymlinks)
 }
